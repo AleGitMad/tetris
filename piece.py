@@ -13,7 +13,6 @@ TETROMINOS = {
     "Z": [[1, 1, 0], [0, 1, 1]]
 }
 bottom = [[1, 1, 1, 1, 1, 1, 1, 1]]
-side = [[1], [1], [1], [1], [1], [1], [1], [1], [1], [1], [1], [1], [1], [1], [1], [1], [1], [1], [1], [1]]
 
 class Piece(pygame.sprite.Sprite):
     def __init__(self, shape, x, y, block_size=30, color=(255, 255, 255)):
@@ -49,6 +48,15 @@ class Piece(pygame.sprite.Sprite):
         self.mask = pygame.mask.from_surface(self.image)  # Maschera per collisioni
         self.mask = expand_mask(self.mask)  # Espandi la maschera
 
+        self.move_timers = {
+            pygame.K_LEFT: {'pressed': False, 'start_time': 0, 'last_move': 0},
+            pygame.K_RIGHT: {'pressed': False, 'start_time': 0, 'last_move': 0},
+            pygame.K_DOWN: {'pressed': False, 'start_time': 0, 'last_move': 0},
+            pygame.K_UP: {'pressed': False}
+        }
+        self.move_delay_initial = 300  # ms
+        self.move_delay_repeat = 100   # ms
+
     def rotate(self, obstacles):
         """Ruota la matrice del Tetromino di 90°"""
         if not pygame.sprite.spritecollide(self, obstacles, False, pygame.sprite.collide_mask):
@@ -67,6 +75,17 @@ class Piece(pygame.sprite.Sprite):
             self.rect = self.image.get_rect(topleft=(self.rect.x, self.rect.y))
             self.mask = pygame.mask.from_surface(self.image)  # Aggiorna la maschera di collisione
 
+    def handle_key_events(self, event):
+        if event.type == pygame.KEYDOWN:
+            if event.key in self.move_timers:
+                self.move_timers[event.key]['pressed'] = True
+                if event.key != pygame.K_UP:
+                    self.move_timers[event.key]['start_time'] = pygame.time.get_ticks()
+                    self.move_timers[event.key]['last_move'] = 0  # Forza lo spostamento iniziale
+        elif event.type == pygame.KEYUP:
+            if event.key in self.move_timers:
+                self.move_timers[event.key]['pressed'] = False
+
     def apply_gravity(self):
         """Fa cadere il pezzo ogni tot millisecondi"""
         now = pygame.time.get_ticks()
@@ -76,28 +95,37 @@ class Piece(pygame.sprite.Sprite):
 
     def on_ground(self, obstacles):
         """Porta il pezzo a terra"""
-        max_y = obstacles.sprites()[0].rect.y
-        for piece in obstacles:
-            if piece.rect.y > max_y:
-                max_y = piece.rect.y
+        max_y = HEIGHT
+        for sprite in obstacles.sprites():
+            if sprite.rect.y < max_y:
+                max_y = sprite.rect.y
         self.rect.y = max_y  # Calcola la posizione in base alla griglia
         
     def update(self, obstacles):
-        keys = pygame.key.get_pressed()
+        current_time = pygame.time.get_ticks()
         dx, dy = 0, 0
-        if keys[pygame.K_LEFT]:
-            if self.rect.x > 0:
-                dx = -self.block_size
-        if keys[pygame.K_RIGHT]:
-            if self.rect.x + self.rect.width < WIDTH:
-                dx = self.block_size
-        if keys[pygame.K_DOWN]:
-            if self.rect.y < HEIGHT:
-                dy = self.block_size
-        if keys[pygame.K_UP]:
+
+        # Movimento controllato (sinistra, destra, giù)
+        for key, direction in [(pygame.K_LEFT, (-self.block_size, 0)),
+                               (pygame.K_RIGHT, (self.block_size, 0)),
+                               (pygame.K_DOWN, (0, self.block_size))]:
+            state = self.move_timers[key]
+            if state['pressed']:
+                elapsed = current_time - state['start_time']
+                interval = self.move_delay_repeat if elapsed > self.move_delay_initial else self.move_delay_initial
+                if current_time - state['last_move'] >= interval:
+                    if key == pygame.K_LEFT and self.rect.x > 0:
+                        dx += direction[0]
+                    elif key == pygame.K_RIGHT and self.rect.x + self.rect.width < WIDTH_G:
+                        dx += direction[0]
+                    elif key == pygame.K_DOWN and self.rect.y + self.rect.height < HEIGHT:
+                        dy += direction[1]
+                    state['last_move'] = current_time
+
+        # Rotazione: solo al primo evento KEYDOWN
+        if self.move_timers[pygame.K_UP]['pressed']:
             self.rotate(obstacles)
-        if keys[pygame.K_SPACE]:
-            self.on_ground(obstacles)
+            self.move_timers[pygame.K_UP]['pressed'] = False  # Impedisci ripetizione fino al rilascio
 
         # Muoviamo l'oggetto e verifichiamo le collisioni
         self.rect.x += dx
@@ -105,19 +133,21 @@ class Piece(pygame.sprite.Sprite):
             self.rect.x -= dx  # Annulliamo il movimento se c'è una collisione
 
         self.rect.y += dy
+        if self.rect.y + self.rect.height > HEIGHT:
+            self.rect.y = HEIGHT - self.rect.height
+            self.collision = True
         if pygame.sprite.spritecollide(self, obstacles, False, pygame.sprite.collide_mask):
             self.rect.y -= dy  # Annulliamo il movimento se c'è una collisione
 
         # Applica la gravità automaticamente
         if not pygame.sprite.spritecollide(self, obstacles, False, pygame.sprite.collide_mask):
-            self.apply_gravity(obstacles)
+            self.apply_gravity()
         else:
             self.collision = True
 
 def expand_mask(mask):
         """Espande una maschera Pygame aggiungendo un bordo di `expansion` pixel attorno"""
         width, height = mask.get_size()
-        print(width, height)
 
         # Creiamo una nuova maschera più grande
         new_mask = pygame.mask.Mask((width + GRID_SIZE, height + GRID_SIZE))
@@ -131,5 +161,4 @@ def expand_mask(mask):
                             new_x = x + 1 + dx
                             new_y = y + 1 + dy
                             new_mask.set_at((new_x, new_y), 1)
-        print(new_mask.get_size())
         return new_mask

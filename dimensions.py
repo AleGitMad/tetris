@@ -2,7 +2,9 @@ import pygame
 import random
 
 # Dimensioni finestra
-WIDTH, HEIGHT = 300, 600
+WIDTH, HEIGHT = 500, 650
+WIDTH_G, HEIGHT_G = 300, 600
+START = HEIGHT - HEIGHT_G
 GRID_SIZE = 30
 COLUMNS = 10
 ROWS = 20
