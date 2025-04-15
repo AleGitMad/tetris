@@ -1,5 +1,4 @@
 import pygame
-import random
 
 # Dimensioni finestra
 WIDTH, HEIGHT = 500, 650

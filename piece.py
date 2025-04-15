@@ -1,5 +1,4 @@
 import pygame
-import random
 from dimensions import *
 
 # Pezzi di Tetris
@@ -29,8 +28,6 @@ class Piece(pygame.sprite.Sprite):
         
         self.collision = False  # Flag per la collisione
 
-        self.rotation = 0  # Angolo di rotazione
-
         self.gravity_timer = pygame.time.get_ticks()  # Timer per la caduta
 
         # Calcola larghezza e altezza della superficie
@@ -46,7 +43,7 @@ class Piece(pygame.sprite.Sprite):
 
         self.rect = self.image.get_rect(topleft=(x, y))
         self.mask = pygame.mask.from_surface(self.image)  # Maschera per collisioni
-        self.mask = expand_mask(self.mask)  # Espandi la maschera
+        # self.mask = expand_mask(self.mask)  # Espandi la maschera
 
         self.move_timers = {
             pygame.K_LEFT: {'pressed': False, 'start_time': 0, 'last_move': 0},
@@ -101,7 +98,7 @@ class Piece(pygame.sprite.Sprite):
                 max_y = sprite.rect.y
         self.rect.y = max_y  # Calcola la posizione in base alla griglia
         
-    def update(self, obstacles):
+    def update(self, obstacles, game_map):
         current_time = pygame.time.get_ticks()
         dx, dy = 0, 0
 
@@ -140,17 +137,29 @@ class Piece(pygame.sprite.Sprite):
             self.rect.y -= dy  # Annulliamo il movimento se c'è una collisione
 
         # Applica la gravità automaticamente
-        if not pygame.sprite.spritecollide(self, obstacles, False, pygame.sprite.collide_mask):
+        if not self.collision:
             self.apply_gravity()
-        else:
+
+        # Dopo gravità, verifica collisione in basso
+        if pygame.sprite.spritecollide(self, obstacles, False, pygame.sprite.collide_mask):
+            self.rect.y -= self.block_size  # Torna indietro
             self.collision = True
+        # # Applica la gravità automaticamente
+        # if not pygame.sprite.spritecollide(self, obstacles, False, pygame.sprite.collide_mask):
+        #     self.apply_gravity()
+        # else:
+        #     self.collision = True
+        #     list = pygame.sprite.spritecollide(self, obstacles, False, pygame.sprite.collide_mask)
+        #     game_map.add_piece(self)
+            # for sprite in list:
+            #     print ("y:", sprite.rect.y, "x:", sprite.rect.x, "mask:", sprite.mask)
 
 def expand_mask(mask):
         """Espande una maschera Pygame aggiungendo un bordo di `expansion` pixel attorno"""
         width, height = mask.get_size()
 
         # Creiamo una nuova maschera più grande
-        new_mask = pygame.mask.Mask((width + GRID_SIZE, height + GRID_SIZE))
+        new_mask = pygame.mask.Mask((width + 2*GRID_SIZE, height + 2*GRID_SIZE))
 
         # Copiamo la maschera originale nella nuova, spostandola al centro
         for x in range(width):

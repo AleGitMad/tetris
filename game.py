@@ -2,6 +2,7 @@ import pygame
 import random
 from piece import Piece, TETROMINOS, bottom
 from dimensions import *
+from map import Map
 
 # Inizializza Pygame
 pygame.init()
@@ -33,6 +34,8 @@ end = False
 running = True
 clock = pygame.time.Clock()
 
+game_map = Map(HEIGHT // GRID_SIZE, WIDTH_G // GRID_SIZE, GRID_SIZE)
+
 piece = Piece(random.choice(list(TETROMINOS.keys())), WIDTH_G // 2, START - GRID_SIZE, 30, random.choice(colors))
 bottom = Piece(bottom, 0 + GRID_SIZE, HEIGHT, 30, RED)
 obstacles.add(bottom)
@@ -58,14 +61,18 @@ while running:
         end = True
 
     if piece.collision == True and end == False:
+        game_map.add_piece(piece)
+        cleared = game_map.clear_full_rows()
+        
         obstacles.add(piece)
         piece = Piece(random.choice(list(TETROMINOS.keys())), WIDTH_G // 2, START - GRID_SIZE, 30, random.choice(colors))
         all_pieces.add(piece)
 
     if end == False:
-        piece.update(obstacles)
+        piece.update(obstacles, game_map)
         screen.fill(BLACK)
         draw_grid()
+        # game_map.draw(screen)  # per debug visivo delle righe occupate
         all_pieces.draw(screen)
         obstacles.draw(screen)
 
