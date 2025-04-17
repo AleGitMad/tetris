@@ -1,4 +1,5 @@
 import pygame
+from block import Block
 from dimensions import *
 
 # Pezzi di Tetris
@@ -23,7 +24,7 @@ class Piece(pygame.sprite.Sprite):
         if isinstance(shape, str) and shape in TETROMINOS:
             self.matrix = TETROMINOS[shape]
         else:
-            # Altrimenti usa la matrice passata (bottom o side)
+            # Altrimenti usa la matrice passata (bottom)
             self.matrix = shape
         
         self.collision = False  # Flag per la collisione
@@ -51,6 +52,7 @@ class Piece(pygame.sprite.Sprite):
             pygame.K_DOWN: {'pressed': False, 'start_time': 0, 'last_move': 0},
             pygame.K_UP: {'pressed': False}
         }
+        # Delay per il movimento
         self.move_delay_initial = 300  # ms
         self.move_delay_repeat = 100   # ms
 
@@ -73,6 +75,7 @@ class Piece(pygame.sprite.Sprite):
             self.mask = pygame.mask.from_surface(self.image)  # Aggiorna la maschera di collisione
 
     def handle_key_events(self, event):
+        """Gestisce gli eventi di pressione dei tasti per il movimento e la rotazione"""
         if event.type == pygame.KEYDOWN:
             if event.key in self.move_timers:
                 self.move_timers[event.key]['pressed'] = True
@@ -82,6 +85,8 @@ class Piece(pygame.sprite.Sprite):
         elif event.type == pygame.KEYUP:
             if event.key in self.move_timers:
                 self.move_timers[event.key]['pressed'] = False
+        elif event.type == pygame.K_SPACE:
+            self.on_ground()
 
     def apply_gravity(self):
         """Fa cadere il pezzo ogni tot millisecondi"""
@@ -90,13 +95,29 @@ class Piece(pygame.sprite.Sprite):
             self.gravity_timer = now
             self.rect.y += self.block_size
 
+    def get_highest_point(self):
+        """Restituisce la coordinata Y assoluta del punto più alto del Piece"""
+        for row_idx, row in enumerate(self.matrix):
+            if any(cell == 1 for cell in row):
+                return self.rect.y + row_idx * self.block_size
+        return self.rect.y + len(self.matrix) * self.block_size  # Se vuoto, restituisce il fondo
+
     def on_ground(self, obstacles):
-        """Porta il pezzo a terra"""
-        max_y = HEIGHT
-        for sprite in obstacles.sprites():
-            if sprite.rect.y < max_y:
-                max_y = sprite.rect.y
-        self.rect.y = max_y  # Calcola la posizione in base alla griglia
+        """Simula la discesa del pezzo fino alla posizione più bassa possibile senza collisioni"""
+        while not pygame.sprite.spritecollide(self, obstacles, False, pygame.sprite.collide_mask):
+            self.rect.y += CELL_SIZE
+    
+    def explode_into_blocks(self):
+        """Suddivide il pezzo nei singoli blocchi e li restituisce come lista"""
+        blocks = pygame.sprite.Group()
+        for row_idx, row in enumerate(self.matrix):
+            for col_idx, val in enumerate(row):
+                if val == 1:
+                    x = self.rect.x + col_idx * self.block_size
+                    y = self.rect.y + row_idx * self.block_size
+                    block = Block(x, y, self.block_size, self.color)
+                    blocks.add(block)
+        return blocks
         
     def update(self, obstacles, game_map):
         current_time = pygame.time.get_ticks()
@@ -128,8 +149,8 @@ class Piece(pygame.sprite.Sprite):
         self.rect.x += dx
         if pygame.sprite.spritecollide(self, obstacles, False, pygame.sprite.collide_mask):
             self.rect.x -= dx  # Annulliamo il movimento se c'è una collisione
-
         self.rect.y += dy
+        # Verifica collisione al suolo
         if self.rect.y + self.rect.height > HEIGHT:
             self.rect.y = HEIGHT - self.rect.height
             self.collision = True
@@ -144,6 +165,12 @@ class Piece(pygame.sprite.Sprite):
         if pygame.sprite.spritecollide(self, obstacles, False, pygame.sprite.collide_mask):
             self.rect.y -= self.block_size  # Torna indietro
             self.collision = True
+        
+        if self.collision:
+            blocks = self.explode_into_blocks()
+            for block in blocks:
+                game_map.add_block(block)
+        
         # # Applica la gravità automaticamente
         # if not pygame.sprite.spritecollide(self, obstacles, False, pygame.sprite.collide_mask):
         #     self.apply_gravity()
@@ -154,20 +181,21 @@ class Piece(pygame.sprite.Sprite):
             # for sprite in list:
             #     print ("y:", sprite.rect.y, "x:", sprite.rect.x, "mask:", sprite.mask)
 
+
 def expand_mask(mask):
-        """Espande una maschera Pygame aggiungendo un bordo di `expansion` pixel attorno"""
-        width, height = mask.get_size()
+    """Espande una maschera Pygame aggiungendo un bordo di `expansion` pixel attorno"""
+    width, height = mask.get_size()
 
-        # Creiamo una nuova maschera più grande
-        new_mask = pygame.mask.Mask((width + 2*GRID_SIZE, height + 2*GRID_SIZE))
+    # Creiamo una nuova maschera più grande
+    new_mask = pygame.mask.Mask((width + 2*GRID_SIZE, height + 2*GRID_SIZE))
 
-        # Copiamo la maschera originale nella nuova, spostandola al centro
-        for x in range(width):
-            for y in range(height):
-                if mask.get_at((x, y)):  # Se il pixel è attivo nella maschera originale
-                    for dx in range(-1, 2):
-                        for dy in range(-1, 2):
-                            new_x = x + 1 + dx
-                            new_y = y + 1 + dy
-                            new_mask.set_at((new_x, new_y), 1)
-        return new_mask
+    # Copiamo la maschera originale nella nuova, spostandola al centro
+    for x in range(width):
+        for y in range(height):
+            if mask.get_at((x, y)):  # Se il pixel è attivo nella maschera originale
+                for dx in range(-1, 2):
+                    for dy in range(-1, 2):
+                        new_x = x + 1 + dx
+                        new_y = y + 1 + dy
+                        new_mask.set_at((new_x, new_y), 1)
+    return new_mask
