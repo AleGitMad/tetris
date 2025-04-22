@@ -103,9 +103,19 @@ class Piece(pygame.sprite.Sprite):
         return self.rect.y + len(self.matrix) * self.block_size  # Se vuoto, restituisce il fondo
 
     def on_ground(self, obstacles):
-        """Simula la discesa del pezzo fino alla posizione più bassa possibile senza collisioni"""
-        while not pygame.sprite.spritecollide(self, obstacles, False, pygame.sprite.collide_mask):
-            self.rect.y += CELL_SIZE
+        """Simula la discesa istantanea del pezzo fino al primo ostacolo, 
+        allineandolo esattamente sopra senza sovrapposizioni."""
+        while True:
+            # sposto di un blocco verso il basso
+            self.rect.y += self.block_size
+            # controllo se ora colpisco un ostacolo
+            if pygame.sprite.spritecollide(self, obstacles, False, pygame.sprite.collide_mask):
+                # torno indietro di un blocco
+                self.rect.y -= self.block_size
+                # segnalo collisione
+                self.collision = True
+                break
+
     
     def explode_into_blocks(self):
         """Suddivide il pezzo nei singoli blocchi e li restituisce come lista"""
@@ -170,16 +180,6 @@ class Piece(pygame.sprite.Sprite):
             blocks = self.explode_into_blocks()
             for block in blocks:
                 game_map.add_block(block)
-        
-        # # Applica la gravità automaticamente
-        # if not pygame.sprite.spritecollide(self, obstacles, False, pygame.sprite.collide_mask):
-        #     self.apply_gravity()
-        # else:
-        #     self.collision = True
-        #     list = pygame.sprite.spritecollide(self, obstacles, False, pygame.sprite.collide_mask)
-        #     game_map.add_piece(self)
-            # for sprite in list:
-            #     print ("y:", sprite.rect.y, "x:", sprite.rect.x, "mask:", sprite.mask)
 
 
 def expand_mask(mask):

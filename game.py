@@ -15,7 +15,7 @@ def draw_grid():
         pygame.draw.line(screen, DARK_GREY, (0, y), (WIDTH, y), 1)
     pygame.draw.rect(screen, BLACK, (0, 0, WIDTH_G, START))
     pygame.draw.rect(screen, BLACK, (WIDTH_G, 0, WIDTH, HEIGHT))
-#TODO aggiungere griglia per evidenziare bordi blocchi
+
 
 all_pieces = pygame.sprite.Group()
 obstacles = pygame.sprite.Group()
@@ -36,7 +36,7 @@ clock = pygame.time.Clock()
 # Crea la mappa
 game_map = Map(HEIGHT // GRID_SIZE, WIDTH_G // GRID_SIZE, GRID_SIZE)
 # Crea il primo pezzo e il fondo
-piece = Piece(random.choice(list(TETROMINOS.keys())), WIDTH_G // 2, START - GRID_SIZE, 30, random.choice(colors))
+piece = Piece(random.choice(list(TETROMINOS.keys())), WIDTH_G // 2, START, 30, random.choice(colors))
 bottom = Piece(bottom, 0 + GRID_SIZE, HEIGHT, 30, RED)
 obstacles.add(bottom)
 all_pieces.add(piece)
@@ -62,7 +62,6 @@ while running:
 
     # Logica di quando avviene una collisione
     if piece.collision == True and end == False:
-        print("piece top:", piece.rect.y)
         game_map.add_piece(piece)
         cleared = game_map.clear_full_rows()
         if cleared:
@@ -73,16 +72,15 @@ while running:
                         obstacles.remove(sprite)
                         all_pieces.remove(sprite)
         obstacles.add(piece)
-        piece = Piece(random.choice(list(TETROMINOS.keys())), WIDTH_G // 2, START - GRID_SIZE, 30, random.choice(colors))
+        piece = Piece(random.choice(list(TETROMINOS.keys())), WIDTH_G // 2, START, 30, random.choice(colors))
         all_pieces.add(piece)
 
     if end == False:
         piece.update(obstacles, game_map)
         screen.fill(BLACK)
-        draw_grid()
-        # game_map.draw(screen)  # per debug visivo delle righe occupate
         all_pieces.draw(screen)
         obstacles.draw(screen)
+        draw_grid()
 
     pygame.display.flip()
     clock.tick(60)
